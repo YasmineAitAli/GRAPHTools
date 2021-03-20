@@ -1,0 +1,334 @@
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include "arete.h"
+#include "sommet.h"
+#include <QGraphicsScene>
+#include "graphe.h"
+#include "QGraphicsView"
+#include <QtCore>
+#include <QDebug>
+#include <QMouseEvent>
+
+
+int numberOfActiveNodes = 0;
+sommet *from = nullptr;
+sommet *to = nullptr;
+int arg1 =0;
+int arg2 =0;
+int arg3 =0;
+
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent), m_ui(new Ui::MainWindow)
+{
+    m_ui->setupUi(this);
+    m_graph = new GraphWidget(m_scene);
+    m_scene = new QGraphicsScene();
+    //QGraphicsScene *scene = new QGraphicsScene(this);
+    m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
+    m_scene->setSceneRect(-260, -40, 600, 280);
+    m_ui->graphicsView->setScene(m_scene);
+    m_ui->graphicsView->setRenderHint(QPainter::Antialiasing);
+    m_ui->graphicsView->setRenderHint(QPainter::HighQualityAntialiasing);
+    m_ui->graphicsView->scale(qreal(1), qreal(1));
+
+    setMinimumSize(400, 600);
+    setWindowTitle(tr("Graph Creator"));
+}
+
+MainWindow::~MainWindow()
+{
+    delete m_graph;
+    delete m_scene;
+    delete m_ui;
+}
+
+void MainWindow::addNode()
+{
+
+    //sommet* newNode2 = new sommet();
+    int value = m_graph->numberOfNodes() + 1;
+    sommet* newNode2 = new sommet(value);
+
+    QObject::connect(newNode2, SIGNAL(activated(sommet*)),   this, SLOT(nodeActivated(sommet*)));
+    QObject::connect(newNode2, SIGNAL(deactivated(sommet*)), this, SLOT(nodeDeactivated(sommet*)));
+    m_scene->addItem(newNode2);
+    m_graph->addNode(newNode2);
+   newNode2->setPos(-50,10);
+}
+
+void MainWindow::nodeDeactivated(sommet *node)
+{
+    if(*from == *node)  {from = to;}
+    to = nullptr;
+    numberOfActiveNodes--;
+}
+
+void MainWindow::nodeActivated(sommet *node)
+{
+    if(!numberOfActiveNodes)
+    {
+        from = node;
+        numberOfActiveNodes++;
+    }
+    else
+    {
+        to = node;
+        if (from->edgeTo(to) == nullptr)
+        {
+            int q = QMessageBox::question(this, "ajouter arete", "voulez vous ajouter une arete reliant ces deux sommets", QMessageBox::Yes | QMessageBox::No);
+            if (q == QMessageBox::Yes)
+            {   bool ok = false;
+                int j=0,k=0;
+                for(k=0;k<from->neighbors.size();k++){
+                if((from->neighbors)[k]==to) j=1;
+            }
+            if(j==0)
+                {
+                m_scene->addItem(new arete(from, to,QInputDialog::getInt(nullptr, "poids", "Quel est le poids ?", 10, 0,2000,1, &ok)));
+                from->neighbors.push_back(to);
+                to->neighbors.push_back(from);
+                }
+            else
+                {
+                QMessageBox::critical(nullptr, "DANGER", "ARETE DEJA EXISTANTE");
+                }
+            }
+        }
+
+            numberOfActiveNodes++;
+
+            from->deactivate();
+            to->deactivate();
+            from = to = nullptr;
+            numberOfActiveNodes = 0;
+        }
+
+
+
+}
+
+sommet* MainWindow::getNodeById(int id,GraphWidget *graph )
+{
+    foreach (sommet* node, graph->Nodes())
+    {
+        if(node->getId()==id)
+
+            return node;
+
+    }
+}
+
+void MainWindow::deleteSommet(int id){
+
+    int i,j,k=id-1,idd=id;
+    if(id<m_graph->Nodes().size()){
+    sommet* node=getNodeById(id,m_graph);
+    for(i=0;i<node->neighbors.size();i++){
+        for(j=0;j<node->neighbors[i]->neighbors.size();j++){
+            if(node->neighbors[i]->neighbors[j]==node) node->neighbors[i]->neighbors.remove(j);
+        }
+        for(j=0;j<node->neighbors[i]->edgeList.size();j++){
+            if((node->neighbors[i]->edgeList[j]->getSrc()==node)or(node->neighbors[i]->edgeList[j]->getDest()==node)){
+                node->neighbors[i]->edgeList.remove(j);
+            }
+        }
+    }
+    for(i=0;i<node->edgeList.size();i++){
+
+        if((node==node->edgeList[i]->getSrc() || node==node->edgeList[i]->getDest()) && node->edgeList.size()!=0)
+            node->edges().remove(i);
+        m_scene->removeItem(node->edgeList[i]);
+       // m_graph->Nodes().remove(i);
+
+        }
+//for(i=0;i<m_graph->m_adjacentList.size();i++){
+//if(node==m_graph->m_adjacentList[i].first)
+//}
+    m_graph->m_adjacentList.erase(node);
+    node->edgeList.clear();
+    node->neighbors.clear();
+    node->edges().clear();
+
+    int b=m_graph->Nodes().size();
+
+    for ( idd ; idd <b+1 ; idd++) {
+            m_graph->Nodes()[idd-1]->id--;
+            m_graph->Nodes()[idd-1]->update();
+    }
+
+    delete node;
+
+node=nullptr;
+    }}
+
+
+
+
+void MainWindow::randomgraph(int nbrnodes=15 , int nbredges=20,int maxweight=10)
+{
+
+    newGraph();
+    int tok1;
+    int tok2;
+    for(int v=0;v<nbrnodes;v++)
+    {
+
+        int value = m_graph->numberOfNodes() + 1;
+        sommet* newNode = new sommet(value);
+        //sommet *newNode=new sommet();
+
+
+
+
+       int jok1 = (rand() %  300 + (-150) );
+       int jok2 = (rand() %  200+ (0) );
+
+
+ newNode->Pressed=true;
+        newNode->setPos(jok1,jok2);
+       QObject::connect(newNode, SIGNAL(activated(sommet*)),   this, SLOT(nodeActivated(sommet*)));
+        QObject::connect(newNode, SIGNAL(deactivated(sommet*)), this, SLOT(nodeDeactivated(sommet*)));
+
+        m_scene->addItem(newNode);
+        m_graph->addNode(newNode);
+
+    }
+
+    if(nbredges>(nbrnodes*nbrnodes-(nbrnodes*(1+nbrnodes)/2))){ nbredges=nbrnodes*nbrnodes-(nbrnodes*(1+nbrnodes)/2);}
+   int nombreAreteCreer=nbredges;
+do {
+
+    do {
+         tok1 = rand() % (nbrnodes) + 1;
+         tok2 = rand() % (nbrnodes) + 1;
+
+    } while( tok1==tok2 );
+// machi daruri
+ int kiloVar = 0;
+       // bool ok = false;
+    if(maxweight!=0){
+         kiloVar = rand() % (maxweight) + 1 ; }
+
+               int j=0,k=0;
+
+                   for(k=0;k<getNodeById(tok1,m_graph)->neighbors.size();k++){
+                       if((getNodeById(tok1,m_graph)->neighbors)[k]==getNodeById(tok2,m_graph)) j=1;
+                   }
+                   if(j==0) {
+                 nombreAreteCreer--;
+                   m_scene->addItem(new arete(getNodeById(tok1,m_graph),getNodeById(tok2,m_graph),kiloVar));
+
+                       getNodeById(tok1,m_graph)->neighbors.push_back(getNodeById(tok2,m_graph));
+                       getNodeById(tok2,m_graph)->neighbors.push_back(getNodeById(tok1,m_graph));
+
+                   } } while( nombreAreteCreer!=0 );
+
+       // arete* edge = new arete(getNodeById(tok1,m_graph),getNodeById(tok2,m_graph),rndweight);
+
+
+     // m_scene->addItem(edge);
+     // m_graph->addEdge(edge);
+
+
+
+}
+void MainWindow::newGraph()
+{
+    /* hadchi kaycrashi mn b3d matsupprimi chi Sommet o twrk 3 la clear
+     *  int i;
+    for(i=0;i<m_graph->Nodes().size();i++){
+        deleteSommet(m_graph->Nodes()[i]->getId());
+
+    }*/
+   // m_graph->Nodes().clear();
+   // m_graph->m_adjacentList.clear();
+    m_scene->clear();
+    m_ui->graphicsView->viewport()->update();
+    delete m_graph;
+    m_graph = new GraphWidget(m_scene);
+    from = to = nullptr;
+    numberOfActiveNodes = 0;
+
+}
+
+void MainWindow::on_pushButton_clicked()
+{//bool ok = false;
+    //int a = QInputDialog::getInt(nullptr, "sommets", "nombre de sommets :", 20, 0,500,1, &ok);
+    //int b = QInputDialog::getInt(nullptr, "aretes", "nombre d'aretes", 20, 0,500,1, &ok);
+   // int c = QInputDialog::getInt(nullptr, "poids max", "poids max d'aretes", 20, 0,500,1, &ok);
+    randomgraph(arg1,arg2,arg3);
+}
+
+void MainWindow::on_pushButton_5_clicked()
+{
+    addNode();
+}
+
+
+
+void MainWindow::on_pushButton_2_clicked()
+{
+    newGraph();
+}
+
+void MainWindow::on_spinBox_2_valueChanged(int arg33)
+{
+    arg3=arg33;
+}
+
+void MainWindow::on_spinBox_3_valueChanged(int arg22)
+{
+    arg2=arg22;
+}
+
+void MainWindow::on_spinBox_valueChanged(int arg11)
+{
+  arg1=arg11;
+}
+
+void MainWindow::on_pushButton_6_clicked()
+{
+    bool ok = false;
+        int id = QInputDialog::getInt(nullptr, "sommets", "id de sommet a suprimer :", 1, 1,m_graph->Nodes().size(),1, &ok);
+        deleteSommet(id);
+
+}
+
+#if QT_CONFIG(wheelevent)
+
+void MainWindow::wheelEvent(QWheelEvent *event)
+{
+    scaleView(pow(2., -event ->angleDelta().y() / 240.0));;
+}
+
+#endif
+void MainWindow::scaleView(qreal scaleFactor)
+{
+   qreal factor = m_ui->graphicsView->QGraphicsView::transform().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width();
+    if (factor < 0.07 || factor > 100)
+        return;
+
+   m_ui->graphicsView-> scale(scaleFactor, scaleFactor);
+}
+void MainWindow::zoomIn()
+{
+    scaleView(qreal(1.2));
+}
+
+void MainWindow::zoomOut()
+{
+   scaleView(1 / qreal(1.2));
+}
+
+void MainWindow::on_pushButton_9_clicked()
+{
+   scaleView(1 / qreal(1.2));
+}
+
+void MainWindow::on_pushButton_7_clicked()
+{
+ scaleView(qreal(1.2));
+}
+
+
